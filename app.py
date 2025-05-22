@@ -3,14 +3,18 @@ from fastapi import FastAPI, HTTPException, Request
 
 app = FastAPI()
 
-@app.get("/")
+# Root endpoint supports GET and HEAD, hidden from docs
+@app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
 async def root():
     return {"message": "API is up and running"}
 
+# Health check endpoint
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
 
+# POST /query/ endpoint that expects JSON with a 'query' field
 @app.post("/query/")
 async def query_product(request: Request):
     """
@@ -23,7 +27,8 @@ async def query_product(request: Request):
         if not query:
             raise HTTPException(status_code=400, detail="Missing 'query' in request body.")
 
-        from helper import process_query  # Lazy import
+        # Lazy import for performance reasons
+        from helper import process_query
         result = process_query(query)
 
         return {"status": "success", "result": result}
