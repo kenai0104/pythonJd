@@ -8,23 +8,25 @@ from langchain.prompts import FewShotPromptTemplate, SemanticSimilarityExampleSe
 from langchain.prompts import PromptTemplate
 from langchain.chains.sql_database.prompt import PROMPT_SUFFIX
 from langchain_together import Together
-from few_shots import few_shots
+from few_shots import few_shots  # Import few_shots directly if needed
 
 # Load environment variables
 load_dotenv()
 
 # PostgreSQL credentials
+# New, Render-ready
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
 DB_NAME = os.getenv("DB_NAME")
-DB_PORT = os.getenv("DB_PORT", 5432)
+DB_PORT = os.getenv("DB_PORT")  # Default to 5432 if not set
 
-# LLM and Embedding models
+
+# Model and Embeddings
 LLM_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 EMBEDDINGS_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Connect to PostgreSQL
+# PostgreSQL connection URI
 try:
     db = SQLDatabase.from_uri(
         f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}",
@@ -43,13 +45,11 @@ llm = Together(
     together_api_key=os.getenv("TOGETHER_API_KEY"),
 )
 
-# Setup embeddings
+# Embeddings
 embeddings = HuggingFaceEmbeddings(model_name=EMBEDDINGS_MODEL)
 
-# Prepare vector texts from few-shot examples
+# Vectorstore Setup
 vector_texts = [" ".join(str(value) for value in example.values()) for example in few_shots]
-
-# Initialize Chroma vectorstore
 vectorstore = Chroma.from_texts(
     texts=vector_texts,
     embedding=embeddings,
@@ -59,13 +59,13 @@ vectorstore = Chroma.from_texts(
 vectorstore.persist()
 print("✅ Chroma Vectorstore Initialized and Persisted")
 
-# Example selector for few-shot
+# Example selector
 example_selector = SemanticSimilarityExampleSelector(
     vectorstore=vectorstore,
     k=2
 )
 
-# PostgreSQL-specific prompt with schema logic
+# Prompt Setup
 postgres_prompt = """You are a PostgreSQL expert. Given an input question, write a syntactically correct SQL query to run, then return the result.
 
 Instructions:
@@ -81,7 +81,7 @@ Schema relationships:
 
 Do not use aliases unless necessary. Focus on correctness and clarity."""
 
-# Prompt templates
+# Few-shot prompt template
 example_prompt = PromptTemplate(
     input_variables=["Question", "SQLQuery", "SQLResult", "Answer"],
     template="\nQuestion: {Question}\nSQLQuery: {SQLQuery}\nSQLResult: {SQLResult}\nAnswer: {Answer}",
@@ -95,11 +95,7 @@ few_shot_prompt = FewShotPromptTemplate(
     input_variables=["input", "table_info", "top_k"],
 )
 
-# Reset session placeholder (optional)
-def reset_session_state():
-    print("✅ Resetting session state...")
-
-# Get a fresh SQLDatabaseChain each time
+# Chain setup
 def get_few_shot_db_chain():
     try:
         reset_session_state()
@@ -117,9 +113,13 @@ def get_few_shot_db_chain():
         print(f"❌ Error initializing SQLDatabaseChain: {e}")
         return None
 
-# Public function used by FastAPI to process incoming queries
+# Optional session reset
+def reset_session_state():
+    print("✅ Resetting session state...")
+
+# Query processor
 def process_query(query):
-    print(f"🔍 Processing query: {query}")
+    print(f"🔍 Processing query: {query}")  # Debugging line to verify query is passed correctly
     result = "Unable to process the query."
     chain = get_few_shot_db_chain()
     if chain:
